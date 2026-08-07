@@ -1,0 +1,11 @@
+name: foundry-hypothesis-workflow
+metadata:
+  template: foundry-hypothesis-workflow@0.1.0
+infra:
+  provider: bicep
+  path: ./infra
+hooks:
+  postdeploy:
+    # Copy generated settings for the deployment and invocation scripts.
+    - shell: sh
+      run: cp .azure/$AZURE_ENV_NAME/.env ./
