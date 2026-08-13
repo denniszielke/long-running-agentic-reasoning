@@ -22,6 +22,10 @@ def _parser() -> argparse.ArgumentParser:
     plan.add_argument("--workflow-id")
     plan.add_argument("--comment")
 
+    what_if = subparsers.add_parser("what-if")
+    what_if.add_argument("workflow_id")
+    what_if.add_argument("scenario", help="Changed dates, constraints, or preferences to compare")
+
     decide = subparsers.add_parser("decide")
     decide.add_argument("workflow_id")
     decide.add_argument("plan_revision", type=int)
@@ -46,6 +50,13 @@ async def _run(args: argparse.Namespace) -> None:
             "workflow_id": args.workflow_id,
             "scenario": args.scenario,
             "comment": args.comment,
+            "client_request_id": request_id,
+        }
+    elif args.action == "what-if":
+        body = {
+            "action": "what_if",
+            "workflow_id": args.workflow_id,
+            "scenario": args.scenario,
             "client_request_id": request_id,
         }
     elif args.action == "decide":

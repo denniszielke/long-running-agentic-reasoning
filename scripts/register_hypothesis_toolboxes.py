@@ -1,35 +1,29 @@
-"""Register the three scenario MCP services as Foundry toolboxes."""
+"""Register the deterministic travel scenario services as Foundry toolboxes."""
 
 from __future__ import annotations
 
 from scripts._helpers import env, load_env, project_client, save_env
 
 TOOLBOXES = {
-    "INTERNET_RESEARCH": ("internet-research", "Current public internet research"),
-    "CONTEXT_API": ("context-api", "Structured scenario context API retrieval"),
-    "DOCUMENT_SEARCH": ("document-search", "Approved enterprise document search"),
+    "WEATHER": ("weather", "Deterministic city weather by date", "/weather/mcp"),
+    "HOTELS": ("hotels", "Deterministic hotel capabilities, availability, and prices", "/hotels/mcp"),
+    "TRAVEL": ("travel", "Deterministic transportation options by route and date", "/travel/mcp"),
 }
 
 
 def main() -> None:
     load_env()
     project_endpoint = env("AZURE_AI_PROJECT_ENDPOINT", required=True).rstrip("/")
-    test_mcp_url = env("WEATHER_MCP_URL")
+    host_url = env("TRAVEL_MCP_HOST_URL", required=True).rstrip("/")
 
     from azure.ai.projects.models import MCPToolboxTool
     from azure.core.exceptions import ResourceNotFoundError
 
     updates: dict[str, str] = {}
     with project_client() as client:
-        for prefix, (default_name, description) in TOOLBOXES.items():
+        for prefix, (default_name, description, path) in TOOLBOXES.items():
             name = env(f"{prefix}_TOOLBOX_NAME", default_name)
-            mcp_url = env(f"{prefix}_MCP_URL") or test_mcp_url
-            if not mcp_url:
-                raise SystemExit(
-                    f"ERROR: {prefix}_MCP_URL is required when WEATHER_MCP_URL is unset."
-                )
-            if not env(f"{prefix}_MCP_URL"):
-                print(f"  ↳ {prefix}_MCP_URL is unset; using WEATHER_MCP_URL for testing")
+            mcp_url = env(f"{prefix}_MCP_URL") or f"{host_url}{path}"
             try:
                 client.toolboxes.delete(name=name)
                 print(f"  ↳ removed existing toolbox '{name}'")

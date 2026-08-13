@@ -37,7 +37,7 @@ def _plan() -> ExecutionPlan:
                 id=1,
                 title="Research",
                 description="Find current public evidence",
-                tool_category="internet_research",
+                tool_category="weather",
             )
         ],
     )
@@ -129,7 +129,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
                         id=index,
                         title=f"Step {index}",
                         description="Collect evidence",
-                        tool_category="internet_research",
+                        tool_category="weather",
                     )
                     for index in range(1, 7)
                 ],

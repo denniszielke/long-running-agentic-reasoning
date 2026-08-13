@@ -73,6 +73,7 @@ async def _workflow_request(request: Request) -> WorkflowRequest:
 def _envelope(record: WorkflowRecord) -> dict[str, Any]:
     return {
         "workflow_id": record.workflow_id,
+        "parent_workflow_id": record.parent_workflow_id,
         "status": record.status,
         "hypothesis": record.hypothesis.model_dump(mode="json") if record.hypothesis else None,
         "plan": record.plan.model_dump(mode="json") if record.plan else None,
@@ -107,6 +108,8 @@ class WorkflowOrchestrator:
             return record
         if control.action == "plan":
             return await self._plan(control, owner_id, foundry_call_id)
+        if control.action == "what_if":
+            return await self._what_if(control, owner_id, foundry_call_id)
         return await self._decide(control, owner_id, foundry_call_id)
 
     async def _plan(
@@ -120,29 +123,7 @@ class WorkflowOrchestrator:
             record.assert_owner(owner_id)
             revision_comment = control.comment
         else:
-            deterministic_id = uuid.uuid5(uuid.NAMESPACE_URL, f"{owner_id}:{control.client_request_id}").hex
-            async with self._runtime(foundry_call_id) as runtime:
-                session = runtime.create_session(session_id=deterministic_id)
-                record = WorkflowRecord(
-                    workflow_id=deterministic_id,
-                    owner_id=owner_id,
-                    scenario=control.scenario or "",
-                    expires_at=utc_now() + timedelta(hours=int(os.getenv("WORKFLOW_TTL_HOURS", "24"))),
-                    harness_session=session.to_dict(),
-                )
-                try:
-                    record = await self.store.create(record)
-                except WorkflowConflictError:
-                    existing = await self.store.get(deterministic_id)
-                    existing.assert_owner(owner_id)
-                    return existing
-                hypothesis = await runtime.formulate_hypothesis(record.scenario)
-                plan, activities = await runtime.plan(record.scenario, hypothesis, session)
-                return await self.store.mutate(
-                    record.workflow_id,
-                    record.version,
-                    lambda item: self._store_plan(item, hypothesis, plan, activities, session),
-                )
+            return await self._new_plan(control, owner_id, foundry_call_id)
 
         if record.status not in {WorkflowStatus.PLANNING, WorkflowStatus.AWAITING_APPROVAL}:
             raise ValueError(f"workflow cannot be revised in status {record.status}")
@@ -155,6 +136,58 @@ class WorkflowOrchestrator:
             record.version,
             lambda item: self._store_plan(item, hypothesis, plan, activities, session),
         )
+
+    async def _what_if(
+        self,
+        control: WorkflowRequest,
+        owner_id: str,
+        foundry_call_id: str | None,
+    ) -> WorkflowRecord:
+        baseline = await self.store.get(control.workflow_id or "")
+        baseline.assert_owner(owner_id)
+        if baseline.status != WorkflowStatus.COMPLETED or baseline.execution is None:
+            raise ValueError("what_if requires a completed baseline workflow")
+        comparison_scenario = (
+            "Re-evaluate a completed travel scenario with changed assumptions and explicitly compare the new "
+            "result with the baseline.\n\n"
+            f"Baseline scenario:\n{baseline.scenario}\n\n"
+            f"Baseline result:\n{baseline.execution.final_answer}\n\n"
+            f"What-if changes:\n{control.scenario}"
+        )
+        branch = control.model_copy(update={"action": "plan", "scenario": comparison_scenario, "workflow_id": None})
+        return await self._new_plan(branch, owner_id, foundry_call_id, parent_workflow_id=baseline.workflow_id)
+
+    async def _new_plan(
+        self,
+        control: WorkflowRequest,
+        owner_id: str,
+        foundry_call_id: str | None,
+        parent_workflow_id: str | None = None,
+    ) -> WorkflowRecord:
+        deterministic_id = uuid.uuid5(uuid.NAMESPACE_URL, f"{owner_id}:{control.client_request_id}").hex
+        async with self._runtime(foundry_call_id) as runtime:
+            session = runtime.create_session(session_id=deterministic_id)
+            record = WorkflowRecord(
+                workflow_id=deterministic_id,
+                parent_workflow_id=parent_workflow_id,
+                owner_id=owner_id,
+                scenario=control.scenario or "",
+                expires_at=utc_now() + timedelta(hours=int(os.getenv("WORKFLOW_TTL_HOURS", "24"))),
+                harness_session=session.to_dict(),
+            )
+            try:
+                record = await self.store.create(record)
+            except WorkflowConflictError:
+                existing = await self.store.get(deterministic_id)
+                existing.assert_owner(owner_id)
+                return existing
+            hypothesis = await runtime.formulate_hypothesis(record.scenario)
+            plan, activities = await runtime.plan(record.scenario, hypothesis, session)
+            return await self.store.mutate(
+                record.workflow_id,
+                record.version,
+                lambda item: self._store_plan(item, hypothesis, plan, activities, session),
+            )
 
     @staticmethod
     def _store_plan(record: WorkflowRecord, hypothesis: Any, plan: Any, activities: list[Any], session: AgentSession) -> None:

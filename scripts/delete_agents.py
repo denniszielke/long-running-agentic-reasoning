@@ -18,10 +18,9 @@ def main() -> None:
     from azure.core.exceptions import ResourceNotFoundError
 
     toolbox_names = [
-        env("INTERNET_RESEARCH_TOOLBOX_NAME", "internet-research"),
-        env("CONTEXT_API_TOOLBOX_NAME", "context-api"),
-        env("DOCUMENT_SEARCH_TOOLBOX_NAME", "document-search"),
-        env("WEATHER_TOOLBOX_NAME", "weather-tools"),
+        env("WEATHER_TOOLBOX_NAME", "weather"),
+        env("HOTELS_TOOLBOX_NAME", "hotels"),
+        env("TRAVEL_TOOLBOX_NAME", "travel"),
     ]
 
     with project_client() as client:

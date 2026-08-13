@@ -23,13 +23,16 @@ Workflow records use optimistic concurrency and expire after a configurable TTL.
 flowchart LR
     U[CLI or AG-UI] -->|plan| A[Hosted hypothesis agent]
     A -->|save revision and digest| S[(Azure Blob Storage)]
-    A -->|research| T[Foundry toolboxes]
-    T --> I[Internet research MCP]
-    T --> C[Context API MCP]
-    T --> D[Document search MCP]
+  A --> H[Coordinator harness]
+  H --> W[Weather specialist agent]
+  H --> O[Hotel specialist agent]
+  H --> R[Transportation specialist agent]
+  W --> I[Weather MCP]
+  O --> C[Hotels MCP]
+  R --> D[Transportation MCP]
     U -->|approve exact plan| A
     A -->|load and verify| S
-    A -->|execute approved plan| T
+  A -->|execute approved plan| H
 ```
 
 ## Repository layout
@@ -39,7 +42,7 @@ infra/                         Foundry, model, ACR, storage, and monitoring
 scripts/                       Provisioned-resource deployment and CLI tools
 src/hosted_hypothesis_agent/   Agent host, orchestration, models, and Blob store
 src/hypothesis_ag_ui/          Local React console and authenticated adapter
-src/weather_mcp_server/        Generated weather MCP service for testing
+src/travel_mcp_server/         Deterministic travel scenario MCP services
 tests/                         Workflow, orchestration, and adapter tests
 ```
 
@@ -48,8 +51,7 @@ tests/                         Workflow, orchestration, and adapter tests
 - Python 3.13+
 - Azure CLI and Azure Developer CLI
 - An Azure subscription with model quota in the selected region
-- Three read-only MCP services for internet research, context retrieval, and
-  document search
+- The included deterministic weather, hotel, and transportation MCP services
 
 Authenticate and install the local dependencies:
 
@@ -61,21 +63,23 @@ python3 -m pip install -r requirements.txt
 
 ## Configure
 
-Provisioning writes Azure settings to `.env`. For production scenarios,
-configure the three source MCP URLs before registering the toolboxes:
+Provisioning writes Azure settings to `.env`. The travel host exposes three
+independent MCP paths:
 
 ```dotenv
-INTERNET_RESEARCH_MCP_URL=https://<internet-research-service>/mcp
-CONTEXT_API_MCP_URL=https://<context-api-service>/mcp
-DOCUMENT_SEARCH_MCP_URL=https://<document-search-service>/mcp
+WEATHER_MCP_URL=https://<travel-host>/weather/mcp
+HOTELS_MCP_URL=https://<travel-host>/hotels/mcp
+TRAVEL_MCP_URL=https://<travel-host>/travel/mcp
 ```
 
 See [.env.sample](.env.sample) for all supported settings. Optional
 comma-separated allowlists can restrict the tools exposed from each toolbox.
 
-For development, the included weather MCP server can stand in for any unset
-source URL. This fallback is for connectivity testing only; its tools do not
-provide internet, context API, or document-search semantics.
+Each service owns its own 30-city catalog and uses calendar modulo calculations,
+so identical city/date inputs are stable while date changes are predictable.
+During execution, the coordinator delegates approved steps to three bounded
+specialist agents. Specialists can access only their corresponding MCP toolbox;
+the coordinator combines their returned evidence into the final comparison.
 
 ## Deploy
 
@@ -86,23 +90,18 @@ Container Apps environment, and monitoring resources:
 azd up
 ```
 
-Deploy the generated weather MCP server and optionally register it as its own
-Foundry toolbox:
+Deploy the travel MCP host and register its path-specific toolboxes:
 
 ```bash
-python3 -m scripts.deploy_weather_mcp_server
-python3 -m scripts.register_weather_toolbox
+python3 -m scripts.deploy_travel_mcp_server
+python3 -m scripts.register_hypothesis_toolboxes
 ```
 
-The deployment records `WEATHER_MCP_URL` in `.env`. When one of the three
-hypothesis `*_MCP_URL` values is unset, `register_hypothesis_toolboxes` uses that
-weather URL as a test fallback.
+The deployment records `TRAVEL_MCP_HOST_URL` and all three MCP URLs in `.env`.
 
-Register the MCP services as Foundry toolboxes, then build and deploy the hosted
-agent image:
+Build and deploy the hosted agent after toolbox registration:
 
 ```bash
-python3 -m scripts.register_hypothesis_toolboxes
 python3 -m scripts.deploy_hosted_hypothesis_agent
 ```
 
@@ -116,7 +115,7 @@ Create a plan:
 
 ```bash
 python3 -m scripts.invoke_hypothesis_agent plan \
-  "Investigate whether the proposed scenario is supported by current evidence"
+  "Compare a four-night Berlin or Prague trip starting 2026-09-14, including weather, a hotel with a pool, and transportation from Amsterdam."
 ```
 
 Approve the exact revision and digest returned by the plan call:
@@ -131,6 +130,14 @@ latest durable state with:
 
 ```bash
 python3 -m scripts.invoke_hypothesis_agent status <workflow-id>
+```
+
+After completing a baseline, create a linked what-if workflow that replans and
+requires a new approval while retaining the original result for comparison:
+
+```bash
+python3 -m scripts.invoke_hypothesis_agent what-if <workflow-id> \
+  "Move the trip to 2026-10-12, require golf, and prioritize emissions over cost."
 ```
 
 ## Run the UI
@@ -154,6 +161,7 @@ deployed agent name from `.env`.
 ```bash
 python3 -m unittest discover -s tests/hosted_hypothesis_agent -p 'test_*.py'
 python3 -m unittest discover -s tests/hypothesis_ag_ui -p 'test_*.py'
+python3 -m unittest discover -s tests/travel_mcp_server -p 'test_*.py'
 cd src/hypothesis_ag_ui/frontend && npm run build
 ```
 

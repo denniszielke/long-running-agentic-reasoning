@@ -50,7 +50,7 @@ class FakeRuntime:
                         id=1,
                         title="Research",
                         description="Collect evidence",
-                        tool_category="internet_research",
+                        tool_category="weather",
                     )
                 ],
             ),
@@ -97,6 +97,38 @@ class OrchestratorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(completed.execution.final_answer, "Evidence collected.")
         self.assertEqual(retried.version, completed.version)
         self.assertEqual(FakeRuntime.received_call_ids, ["call-plan-1", "call-approve-1"])
+
+    async def test_what_if_branches_from_completed_workflow(self) -> None:
+        orchestrator = WorkflowOrchestrator(InMemoryWorkflowStore(), runtime_factory=FakeRuntime)
+        planned = await orchestrator.dispatch(
+            WorkflowRequest(action="plan", scenario="Visit Berlin", client_request_id="plan-baseline"),
+            "caller-1",
+        )
+        completed = await orchestrator.dispatch(
+            WorkflowRequest(
+                action="approve",
+                workflow_id=planned.workflow_id,
+                client_request_id="approve-baseline",
+                plan_revision=planned.plan_revision,
+                plan_digest=planned.plan_digest,
+                decision="approved",
+            ),
+            "caller-1",
+        )
+        branch = await orchestrator.dispatch(
+            WorkflowRequest(
+                action="what_if",
+                workflow_id=completed.workflow_id,
+                scenario="Move the trip one week later and require a pool.",
+                client_request_id="what-if-1",
+            ),
+            "caller-1",
+        )
+
+        self.assertEqual(branch.status, WorkflowStatus.AWAITING_APPROVAL)
+        self.assertEqual(branch.parent_workflow_id, completed.workflow_id)
+        self.assertIn("Move the trip one week later", branch.scenario)
+        self.assertIn("Evidence collected.", branch.scenario)
 
     async def test_different_owner_cannot_read_workflow(self) -> None:
         orchestrator = WorkflowOrchestrator(InMemoryWorkflowStore(), runtime_factory=FakeRuntime)

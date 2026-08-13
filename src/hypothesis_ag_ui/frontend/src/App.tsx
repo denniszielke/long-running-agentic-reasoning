@@ -5,13 +5,13 @@ import {
   Check,
   ChevronRight,
   CircleDot,
-  FileSearch,
+  CloudSun,
   FlaskConical,
-  Globe2,
+  Hotel,
   LoaderCircle,
+  Plane,
   RefreshCw,
   RotateCcw,
-  Search,
   ShieldCheck,
   X,
 } from "lucide-react";
@@ -19,6 +19,7 @@ import { FormEvent, useRef, useState } from "react";
 
 type Workflow = {
   workflow_id: string;
+  parent_workflow_id?: string;
   status: string;
   hypothesis?: {
     statement: string;
@@ -33,7 +34,7 @@ type Workflow = {
       id: number;
       title: string;
       description: string;
-      tool_category: "internet_research" | "context_api" | "document_search";
+      tool_category: "weather" | "hotels" | "travel";
       expected_evidence: string[];
       completion_criteria: string[];
     }>;
@@ -51,9 +52,9 @@ type Workflow = {
 };
 
 const toolMeta = {
-  internet_research: { label: "Internet research", icon: Globe2 },
-  context_api: { label: "Context API", icon: Search },
-  document_search: { label: "Document search", icon: FileSearch },
+  weather: { label: "Weather", icon: CloudSun },
+  hotels: { label: "Hotels", icon: Hotel },
+  travel: { label: "Transportation", icon: Plane },
 };
 
 const makeId = () => crypto.randomUUID();
@@ -61,6 +62,7 @@ const makeId = () => crypto.randomUUID();
 export function App() {
   const [scenario, setScenario] = useState("");
   const [comment, setComment] = useState("");
+  const [whatIf, setWhatIf] = useState("");
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -120,6 +122,17 @@ export function App() {
     });
   }
 
+  function submitWhatIf(event: FormEvent) {
+    event.preventDefault();
+    if (!workflow || !whatIf.trim()) return;
+    void invoke({
+      action: "what_if",
+      workflow_id: workflow.workflow_id,
+      scenario: whatIf.trim(),
+      client_request_id: makeId(),
+    });
+  }
+
   function reset() {
     agent.current.abortRun();
     threadId.current = makeId();
@@ -127,6 +140,7 @@ export function App() {
     setWorkflow(null);
     setScenario("");
     setComment("");
+    setWhatIf("");
     setError("");
   }
 
@@ -159,7 +173,7 @@ export function App() {
             <section className="scenario-panel">
               <div className="scenario-heading"><CircleDot size={20} /><div><h1>Frame a testable scenario</h1><p>The agent will formulate a hypothesis and prepare a bounded evidence plan for review.</p></div></div>
               <form onSubmit={submitScenario}>
-                <textarea value={scenario} onChange={(event) => setScenario(event.target.value)} placeholder="Example: Test whether Seattle is currently warmer than Sydney, using current weather evidence." autoFocus />
+                <textarea value={scenario} onChange={(event) => setScenario(event.target.value)} placeholder="Example: Compare a four-night Berlin or Prague trip starting 2026-09-14, including weather, a hotel with a pool, and transportation from Amsterdam." autoFocus />
                 <div className="form-footer"><span>{scenario.length.toLocaleString()} / 50,000</span><button className="primary" disabled={!scenario.trim()}><FlaskConical size={17} />Build hypothesis</button></div>
               </form>
             </section>
@@ -183,7 +197,7 @@ export function App() {
               {waiting && <section className="approval"><div className="approval-heading"><ShieldCheck size={21} /><div><h2>Human approval required</h2><p>Execution is blocked until this exact plan revision and digest are approved.</p></div></div><textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Optional feedback for revision or rejection" /><div className="approval-actions"><button className="secondary danger" disabled={busy} onClick={() => decide("rejected")}><X size={17} />Reject</button><button className="secondary" disabled={busy} onClick={() => decide("revise")}><RefreshCw size={17} />Request revision</button><button className="primary" disabled={busy} onClick={() => decide("approved")}><Check size={17} />Approve & execute</button></div><code className="digest">{workflow.plan_digest}</code></section>}
 
               {busy && <LoadingState label={waiting ? "Applying your decision" : "Running workflow"} compact />}
-              {workflow.execution && <section className="result"><p className="eyebrow">Execution result</p><h2>Findings</h2><div className="answer">{workflow.execution.final_answer}</div>{workflow.execution.warnings.length > 0 && <InfoList title="Warnings" items={workflow.execution.warnings} warning />}</section>}
+              {workflow.execution && <section className="result"><p className="eyebrow">Execution result</p><h2>Findings</h2><div className="answer">{workflow.execution.final_answer}</div>{workflow.execution.warnings.length > 0 && <InfoList title="Warnings" items={workflow.execution.warnings} warning />}<form className="what-if" onSubmit={submitWhatIf}><h3>Compare a what-if</h3><textarea value={whatIf} onChange={(event) => setWhatIf(event.target.value)} placeholder="Change dates, city, budget, hotel capabilities, or transportation priorities." /><div className="form-footer"><span>Creates a new approval workflow from this baseline</span><button className="primary" disabled={busy || !whatIf.trim()}><RefreshCw size={17} />Recalculate</button></div></form></section>}
               {workflow.error && <div className="error-banner"><AlertTriangle size={18} />{workflow.error}</div>}
             </>
           )}

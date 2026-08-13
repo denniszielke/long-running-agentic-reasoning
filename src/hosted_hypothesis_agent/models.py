@@ -12,6 +12,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+ToolCategory = Literal["weather", "hotels", "travel"]
+
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -47,7 +50,7 @@ class PlanStep(BaseModel):
     id: int = Field(ge=1)
     title: str = Field(min_length=1)
     description: str = Field(min_length=1)
-    tool_category: Literal["internet_research", "context_api", "document_search"]
+    tool_category: ToolCategory
     inputs: dict[str, Any] = Field(default_factory=dict)
     expected_evidence: list[str] = Field(default_factory=list)
     completion_criteria: list[str] = Field(default_factory=list)
@@ -92,7 +95,7 @@ class ToolActivity(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     phase: Literal["planning", "execution"]
-    tool_category: Literal["internet_research", "context_api", "document_search"]
+    tool_category: ToolCategory
     tool_name: str
     started_at: datetime
     duration_ms: int = Field(ge=0)
@@ -114,6 +117,7 @@ class WorkflowRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     workflow_id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    parent_workflow_id: str | None = None
     owner_id: str = Field(min_length=1)
     scenario: str = Field(min_length=1)
     status: WorkflowStatus = WorkflowStatus.HYPOTHESIZING
@@ -174,7 +178,7 @@ class WorkflowRecord(BaseModel):
 class WorkflowRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    action: Literal["plan", "approve", "status"]
+    action: Literal["plan", "what_if", "approve", "status"]
     workflow_id: str | None = None
     scenario: str | None = Field(default=None, max_length=50_000)
     client_request_id: str = Field(min_length=1, max_length=200)
@@ -187,8 +191,10 @@ class WorkflowRequest(BaseModel):
     def validate_action_fields(self) -> WorkflowRequest:
         if self.action == "plan" and not self.scenario and not self.workflow_id:
             raise ValueError("a new plan requires scenario")
-        if self.action in {"approve", "status"} and not self.workflow_id:
+        if self.action in {"what_if", "approve", "status"} and not self.workflow_id:
             raise ValueError(f"{self.action} requires workflow_id")
+        if self.action == "what_if" and not self.scenario:
+            raise ValueError("what_if requires scenario changes")
         if self.action == "approve" and (
             self.plan_revision is None or self.plan_digest is None or self.decision is None
         ):
