@@ -8,6 +8,8 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from .transport_security import transport_security_settings
+
 
 _CITIES = [
     ("Amsterdam", "NL", 52.37, 4.90, "temperate-maritime", 10, 7),
@@ -106,6 +108,7 @@ mcp = FastMCP(
     name="travel-weather",
     instructions="Use these tools for deterministic weather evidence by city and date.",
     stateless_http=True,
+    transport_security=transport_security_settings(),
 )
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from scripts._helpers import ROOT, acr_build, deploy_container_app, env, load_env, save_env, tag_from_cli
+from scripts._helpers import ROOT, acr_build, deploy_container_app, env, load_env, run, save_env, tag_from_cli
 
 APP_NAME = "travel-mcp-server"
 PORT = 8093
@@ -11,9 +11,23 @@ PORT = 8093
 def main(tag: str | None = None) -> None:
     load_env()
     image = acr_build(APP_NAME, ROOT / "src" / "travel_mcp_server" / "Dockerfile", tag=tag)
+    default_domain = run(
+        [
+            "az", "containerapp", "env", "show",
+            "--name", env("AZURE_CONTAINER_ENVIRONMENT_NAME", required=True),
+            "--resource-group", env("AZURE_RESOURCE_GROUP", required=True),
+            "--subscription", env("AZURE_SUBSCRIPTION_ID", required=True),
+            "--query", "properties.defaultDomain",
+            "-o", "tsv",
+        ],
+        capture=True,
+    )
+    public_host = f"{APP_NAME}.{default_domain}"
     container_env = {
         "TRAVEL_MCP_HOST": "0.0.0.0",
         "TRAVEL_MCP_PORT": str(PORT),
+        "TRAVEL_MCP_ALLOWED_HOSTS": f"{public_host},{public_host}:*",
+        "TRAVEL_MCP_ALLOWED_ORIGINS": f"https://{public_host},https://{public_host}:*",
         "IMAGE_TAG": image.rsplit(":", 1)[-1],
     }
     if connection_string := env("APPLICATIONINSIGHTS_CONNECTION_STRING"):

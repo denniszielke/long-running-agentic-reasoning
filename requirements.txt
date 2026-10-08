@@ -1,14 +1,14 @@
 # Local development, tests, and deployment for the hosted hypothesis workflow.
-agent-framework-core==1.13.0
-agent-framework-foundry==1.10.4
-azure-ai-agentserver-invocations==1.0.0
-azure-ai-projects==2.3.0
-azure-identity==1.25.3
-azure-monitor-opentelemetry==1.8.9
-azure-storage-blob==12.30.0
-fastapi==0.139.2
+agent-framework-core==1.21.0
+agent-framework-foundry==1.13.1
+azure-ai-agentserver-invocations==1.2.0
+azure-ai-projects==2.6.1
+azure-identity==1.26.0
+azure-monitor-opentelemetry==1.8.11
+azure-storage-blob==12.31.0
+fastapi==0.142.2
 httpx==0.28.1
-mcp==1.29.0
-pydantic==2.13.4
-python-dotenv==1.2.2
-uvicorn==0.51.0
+mcp==1.30.0
+pydantic==2.13.5
+python-dotenv==1.2.4
+uvicorn==0.54.0

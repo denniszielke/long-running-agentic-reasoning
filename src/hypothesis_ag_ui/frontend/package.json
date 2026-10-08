@@ -9,17 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.57",
-    "@ag-ui/core": "0.0.57",
-    "lucide-react": "^0.468.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "@ag-ui/client": "1.0.1",
+    "@ag-ui/core": "1.0.1",
+    "lucide-react": "^1.49.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.3.4",
-    "typescript": "~5.7.2",
-    "vite": "^6.0.5"
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.2"
   }
 }

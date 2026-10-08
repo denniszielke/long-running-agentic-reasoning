@@ -8,6 +8,8 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from .transport_security import transport_security_settings
+
 
 _HOTELS = [
     ("Amsterdam", "Canal House", 185, ["pool", "sport"]),
@@ -93,6 +95,7 @@ mcp = FastMCP(
     name="travel-hotels",
     instructions="Use these tools for deterministic hotel capabilities, availability, and prices.",
     stateless_http=True,
+    transport_security=transport_security_settings(),
 )
 
 

@@ -9,6 +9,8 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from .transport_security import transport_security_settings
+
 
 _CITIES = [
     ("Amsterdam", "NL", 52.37, 4.90), ("Athens", "GR", 37.98, 23.73),
@@ -91,6 +93,7 @@ mcp = FastMCP(
     name="travel-transportation",
     instructions="Use these tools for deterministic air, train, and car route evidence by date.",
     stateless_http=True,
+    transport_security=transport_security_settings(),
 )
 
 

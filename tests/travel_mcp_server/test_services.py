@@ -7,6 +7,7 @@ from starlette.testclient import TestClient
 from src.travel_mcp_server.hotel_service import _HOTELS, mcp as hotel_mcp, quote_hotel
 from src.travel_mcp_server.server import app
 from src.travel_mcp_server.transport_service import _CITIES as TRANSPORT_CITIES, mcp as transport_mcp, route_options
+from src.travel_mcp_server.transport_security import transport_security_settings
 from src.travel_mcp_server.weather_service import _CITIES as WEATHER_CITIES, mcp as weather_mcp, weather_for
 
 
@@ -14,6 +15,17 @@ class TravelServiceTests(unittest.TestCase):
     def test_each_mcp_server_uses_stateless_http(self) -> None:
         for server in (weather_mcp, hotel_mcp, transport_mcp):
             self.assertTrue(server.settings.stateless_http)
+
+    def test_transport_security_allows_configured_public_host(self) -> None:
+        host = "travel-mcp-server.example.azurecontainerapps.io"
+        settings = transport_security_settings(
+            allowed_hosts=f"{host},{host}:*",
+            allowed_origins=f"https://{host},https://{host}:*",
+        )
+        self.assertTrue(settings.enable_dns_rebinding_protection)
+        self.assertIn(host, settings.allowed_hosts)
+        self.assertIn(f"{host}:*", settings.allowed_hosts)
+        self.assertNotIn("untrusted.example", settings.allowed_hosts)
 
     def test_each_independent_service_covers_thirty_cities(self) -> None:
         self.assertEqual(len(WEATHER_CITIES), 30)
