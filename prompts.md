@@ -1,0 +1,3 @@
+Set up a small team for this existing Python, Bicep and Node.js application. We need a Lead who deals with architecture, Agent develper for the agents/memory/protocols, Frontend for the node ag-ui web app, and bicep automation engineer for the infrastructure as code and python deployment scripts and Tester. Keep the normal Scribe and Ralph support roles. Show the proposed roster before confirming it. Do not change application code.
+
+There have been some recent upgrades of the foundry platform and I want to update the
